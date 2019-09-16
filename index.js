@@ -12,6 +12,22 @@ server.use(helmet());
 server.use(express.json());
 server.use(cors());
 
+function validateCredentials(req, res, next){
+  let { username, password } = req.body;
+  Users.findBy({ username })
+    .first()
+    .then(user => {
+      if (user && bcrypt.compareSync(password, user.password)) {
+        next();
+      } else {
+        res.status(401).json({ message: 'Invalid Credentials' });
+      }
+    })
+    .catch(error => {
+      res.status(500).json({message:'error validating credentials'});
+    });
+}
+
 server.get('/', (req, res) => {
   res.send("It's alive!");
 });
@@ -28,9 +44,8 @@ server.post('/api/register', (req, res) => {
     });
 });
 
-server.post('/api/login', (req, res) => {
+server.post('/api/login', validateCredentials, (req, res) => {
   let { username, password } = req.body;
-  const hash = bcrypt.hashSync(password, 8)
   Users.findBy({ username })
     .first()
     .then(user => {
@@ -45,12 +60,12 @@ server.post('/api/login', (req, res) => {
     });
 });
 
-server.get('/api/users', (req, res) => {
+server.get('/api/users', validateCredentials, (req, res) => {
   Users.find()
     .then(users => {
       res.json(users);
     })
-    .catch(err => res.send(err));
+    .catch(err => res.json({message: 'error getting users'}));
 });
 
 server.get('/hash', (req, res) => {
@@ -65,3 +80,10 @@ server.get('/hash', (req, res) => {
 
 const port = process.env.PORT || 5000;
 server.listen(port, () => console.log(`\n** Running on port ${port} **\n`));
+
+/* Write a middleware that will check for the username and password
+   (like with login) and let the request continue to /api/users if 
+   credentials are good. Return 401 if credentials are invalid.
+
+   Use the middleware to restrict access to GET /api/users endpoint.
+*/
